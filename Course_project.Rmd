@@ -1,0 +1,146 @@
+Practical Machine Learning Course Project
+========================================================
+*By Arvind Krishna*
+
+## Executive summary
+
+The goal of the project is to classify exercise behaviours of people using data from fitness devices like fitbit, jawbone up etc. A couple of model were built to classify - 1) Decision tree and (2) Random forest. The random forest model was found to be very accurate having an accuracy of classifying 995 out of 1000 cases correctly. The decision tree model's accuracy was somewhat lesser with the model classifying approximately 3 out of 4 cases correctly.
+
+Thus the random forest model was chosen to predict the classification of 20 new cases. The model was able to classify all the cases correctly.
+
+## Solution approach
+
+### Reproducibility
+
+A seed of 999 has been set for the work to be reproducible.
+
+### Modeling approach
+
+Two models will be built to classify the exercising behaviour of people - 1) Using decision trees, (2) Using random forest. The model with higher accuracy will be chosen for prediction
+
+### Cross validation
+
+The training data set will be split into training(75%) and testing(25%) data subsets. Model will be built on the training data and its accuracy will be tested on the testing data. The model with higer accuracy on the testing data will be chosen for prediction on the testing data provided.
+
+### Expected out-of-sample error
+
+Accuracy is the proportion of correctly classified observation over the total sample in the subTesting data set. Expected accuracy is the expected accuracy in the out-of-sample data set (i.e. original testing data set). Thus, the expected value of the out-of-sample error will correspond to the expected number of missclassified observations/total observations in the Test data set
+
+## Data preparation
+
+### Libraries
+
+Including all libraries required for the analysis. Note that library 'e1701' has been added since I am working on an older version of R (Version 0.98.507) and don't have the admin rights to update the version. 'e1701' is a dependancy of the 'caret' package.
+```{r setoptions,echo=TRUE}
+library(caret)
+library(randomForest)
+library(rpart)
+library(rpart.plot)
+library(e1071)
+```
+
+### Data input
+
+Taking testing and training datasets as input
+```{r}
+trainUrl <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+testUrl <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+training <- read.csv(url(trainUrl), na.strings=c("NA","#DIV/0!",""))
+testing <- read.csv(url(testUrl), na.strings=c("NA","#DIV/0!",""))
+```
+
+### Cleaning data
+Finding dimesntions of data
+```{r}
+dim(training)
+dim(testing)
+```
+
+By viewing the data we can see a lot of columns contain 'NAs', so removing those unnecessary columns
+```{r}
+training<-training[,colSums(is.na(training)) == 0]
+testing <-testing[,colSums(is.na(testing)) == 0]
+```
+
+Some variables like user_name, raw_timestamp_part_1 etc. are not useful in the model, so removing them from the data
+```{r}
+training   <-training[,-c(1:7)]
+testing <-testing[,-c(1:7)]
+```
+
+Now viewing the dimesions of the cleaned data
+```{r}
+dim(training)
+dim(testing)
+```
+
+### Partitioning data for cross validation
+
+Setting a seed for the result to be reproducible
+```{r}
+set.seed(999)
+```
+In order to perform cross-validation, the training data set is partionned into 2 sets: subTraining (75%) and subTest (25%).
+This will be performed using random subsampling without replacement.
+
+```{r}
+subsamples <- createDataPartition(y=training$classe, p=0.75, list=FALSE)
+subTraining <- training[subsamples, ] 
+subTesting <- training[-subsamples, ]
+dim(subTraining)
+dim(subTesting)
+```
+
+Viewing the distribution of classe in our model training data set
+
+```{r}
+plot(subTraining$classe, col="grey", main="Distribution of classe within the subTraining data set", xlab="classe", ylab="Frequency")
+```
+
+Data contains 5 classifications of exercise behaviours - A,B,C,D & E. The order of number of cases for all classifications is the same
+
+## Model development
+
+**Developing the 1st prediction model using decision trees**
+```{r}
+model1 <- rpart(classe ~ ., data=subTraining, method="class")
+prediction1 <- predict(model1, subTesting, type = "class")
+rpart.plot(model1, main="Classification Tree", extra=102, under=TRUE, faclen=0)
+```
+
+Viewing the model performance on the model test data
+```{r}
+confusionMatrix(prediction1, subTesting$classe)
+```
+
+**Developing the 2nd prediction model using random forest**
+```{r}
+model2 <- randomForest(classe ~. , data=subTraining, method="class")
+prediction2 <- predict(model2, subTesting, type = "class")
+confusionMatrix(prediction2, subTesting$classe)
+```
+
+## Observations
+
+We observe that the random forest model is more accurate than the decision tree model. Accuracy of random forest model is 0.995 (95% CI: (0.993,0.997)) while that of the decision tree model is 0.759 (95% CI: (0.747, 0.771)). 
+
+## Conclusion
+
+We chose the random forest model since it more accurate. The expected out-of-sample error is estimated at 0.005, or 0.5%. Thus in our testing data comprising of 20 cases, we can expect 0.005*20 i.e 0.1 cases to be missclassified. Thus, practically we should not get any missclassified cases in our testing data.
+
+
+## Prediction for testing data
+
+Predicting classification of the 20 cases of testing data
+```{r}
+predictfinal <- predict(model2, testing, type="class")
+predictfinal
+pml_write_files = function(x){
+  n = length(x)
+  for(i in 1:n){
+    filename = paste0("problem_id_",i,".txt")
+    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+  }
+}
+pml_write_files(predictfinal)
+```
